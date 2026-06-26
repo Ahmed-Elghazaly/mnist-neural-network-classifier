@@ -327,3 +327,31 @@ def plot_comparison(results_dict, metric, ylabel, title, save_path=None):
     plt.close()
 
 
+# =============================================================================
+# Section 4: Baseline Training
+# Ref: [analysis.md: Baseline Training](analysis.md#section-4-baseline-training)
+# =============================================================================
+print("\n" + "=" * 70)
+print("Section 4: Baseline Training (lr=0.01, bs=64, hidden=[256,128])")
+print("=" * 70)
+
+EPOCHS = 25
+BS_DEFAULT = 64
+LR_DEFAULT = 0.01
+
+train_loader, val_loader, test_loader = make_loaders(BS_DEFAULT)
+
+baseline_model = FeedForwardNet(hidden_sizes=(256, 128))
+baseline_hist = train_model(baseline_model, train_loader, val_loader,
+                            lr=LR_DEFAULT, epochs=EPOCHS)
+
+plot_curves(baseline_hist, "Baseline FNN (256-128)",
+            os.path.join(OUTPUT_DIR, "baseline_curves.png"))
+
+baseline_acc, preds_bl, targets_bl = evaluate_model(baseline_model, test_loader)
+print(f"\n  * Baseline Test Accuracy: {baseline_acc:.4f}")
+
+plot_confusion(targets_bl, preds_bl, "Baseline Confusion Matrix",
+               os.path.join(OUTPUT_DIR, "baseline_confusion.png"))
+
+# =============================================================================
