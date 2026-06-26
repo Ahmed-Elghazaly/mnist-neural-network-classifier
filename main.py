@@ -464,3 +464,72 @@ print("\n  Classification Report (Best FNN):")
 print(classification_report(targets_best, preds_best, digits=4))
 
 # =============================================================================
+# Section 6: CNN Bonus and Summary
+# Ref: [analysis.md: CNN Bonus and Summary](analysis.md#section-6-cnn-bonus-and-summary)
+# =============================================================================
+print("\n" + "=" * 70)
+print("Section 6: CNN Bonus and Summary")
+print("=" * 70)
+
+CNN_EPOCHS = 20
+CNN_LR = 0.01
+CNN_BS = 64
+
+cnn_ablation = {
+    "CNN (no drop, no LN)": {"use_dropout": False, "use_layernorm": False},
+    "CNN (drop only)": {"use_dropout": True, "use_layernorm": False},
+    "CNN (LN only)": {"use_dropout": False, "use_layernorm": True},
+    "CNN (drop + LN) [full]": {"use_dropout": True, "use_layernorm": True},
+}
+
+cnn_results = {}
+best_cnn_acc = 0
+best_cnn_model = None
+
+for name, kwargs in cnn_ablation.items():
+    print(f"\n  Training: {name}")
+    model = ConvNet(**kwargs)
+    tl, vl, _ = make_loaders(CNN_BS)
+    hist = train_model(model, tl, vl, lr=CNN_LR, epochs=CNN_EPOCHS, verbose=True)
+    cnn_results[name] = hist
+    va = max(hist["val_acc"])
+    print(f"    Best Val Acc: {va:.4f}")
+    if va > best_cnn_acc:
+        best_cnn_acc = va
+        best_cnn_model = copy.deepcopy(model)
+        best_cnn_name = name
+
+plot_comparison(cnn_results, "val_acc", "Val Accuracy",
+                "CNN Ablation - Validation Accuracy",
+                os.path.join(OUTPUT_DIR, "cnn_ablation_acc.png"))
+plot_comparison(cnn_results, "val_loss", "Val Loss",
+                "CNN Ablation - Validation Loss",
+                os.path.join(OUTPUT_DIR, "cnn_ablation_loss.png"))
+plot_comparison(cnn_results, "train_loss", "Train Loss",
+                "CNN Ablation - Training Loss",
+                os.path.join(OUTPUT_DIR, "cnn_ablation_train_loss.png"))
+
+# -- Best CNN on Test Set -----------------------------------------------------
+_, _, tl_test = make_loaders(CNN_BS)
+cnn_test_acc, cnn_preds, cnn_targets = evaluate_model(best_cnn_model, tl_test)
+print(f"\n  * Best CNN ({best_cnn_name}) Test Accuracy: {cnn_test_acc:.4f}")
+
+plot_confusion(cnn_targets, cnn_preds,
+               f"Best CNN - Confusion Matrix (Acc={cnn_test_acc:.4f})",
+               os.path.join(OUTPUT_DIR, "cnn_confusion.png"))
+
+print("\n  Classification Report (Best CNN):")
+print(classification_report(cnn_targets, cnn_preds, digits=4))
+
+# =============================================================================
+# Section 6: CNN Bonus and Summary - Final Printed Summary
+# =============================================================================
+print("\n" + "=" * 70)
+print("SUMMARY")
+print("=" * 70)
+print(f"  Baseline FNN Test Accuracy  : {baseline_acc:.4f}")
+print(f"  Best FNN Test Accuracy      : {best_fnn_acc:.4f}")
+print(f"  Best CNN Test Accuracy      : {cnn_test_acc:.4f}")
+print(f"  All plots saved to          : {os.path.abspath(OUTPUT_DIR)}/")
+print("=" * 70)
+print("Done!")
