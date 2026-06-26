@@ -182,3 +182,148 @@ class ConvNet(nn.Module):
         return x
 
 
+# =============================================================================
+# Section 3: Training Loop
+# =============================================================================
+
+# Ref: [analysis.md: Training Loop](analysis.md#section-3-training-loop)
+def train_model(model, train_loader, val_loader, lr=0.01, epochs=20,
+                device=DEVICE, verbose=True):
+    """
+    Custom training loop with SGD + CrossEntropyLoss.
+    Returns dict with per-epoch metrics.
+    """
+    model = model.to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+
+    history = {"train_loss": [], "val_loss": [],
+               "train_acc": [], "val_acc": []}
+
+    for epoch in range(1, epochs + 1):
+        # -- Training phase -----------------------------------------------
+        model.train()
+        running_loss, correct, total = 0.0, 0, 0
+        for X_batch, y_batch in train_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+
+            optimizer.zero_grad()
+            logits = model(X_batch)
+            loss = criterion(logits, y_batch)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item() * X_batch.size(0)
+            correct += (logits.argmax(1) == y_batch).sum().item()
+            total += X_batch.size(0)
+
+        train_loss = running_loss / total
+        train_acc = correct / total
+
+        # -- Validation phase ---------------------------------------------
+        model.eval()
+        running_loss, correct, total = 0.0, 0, 0
+        with torch.no_grad():
+            for X_batch, y_batch in val_loader:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                logits = model(X_batch)
+                loss = criterion(logits, y_batch)
+                running_loss += loss.item() * X_batch.size(0)
+                correct += (logits.argmax(1) == y_batch).sum().item()
+                total += X_batch.size(0)
+
+        val_loss = running_loss / total
+        val_acc = correct / total
+
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+        history["train_acc"].append(train_acc)
+        history["val_acc"].append(val_acc)
+
+        if verbose and (epoch % 5 == 0 or epoch == 1):
+            print(f"  Epoch {epoch:3d}/{epochs}  "
+                  f"Train Loss: {train_loss:.4f}  Acc: {train_acc:.4f}  |  "
+                  f"Val Loss: {val_loss:.4f}  Acc: {val_acc:.4f}")
+
+    return history
+
+
+def evaluate_model(model, loader, device=DEVICE):
+    """Return (accuracy, all_preds, all_targets)."""
+    model.eval()
+    all_preds, all_targets = [], []
+    correct, total = 0, 0
+    with torch.no_grad():
+        for X_b, y_b in loader:
+            X_b, y_b = X_b.to(device), y_b.to(device)
+            logits = model(X_b)
+            preds = logits.argmax(1)
+            correct += (preds == y_b).sum().item()
+            total += y_b.size(0)
+            all_preds.extend(preds.cpu().numpy())
+            all_targets.extend(y_b.cpu().numpy())
+    return correct / total, np.array(all_preds), np.array(all_targets)
+
+
+# =============================================================================
+# PLOTTING HELPERS
+# =============================================================================
+
+def plot_curves(history, title="", save_path=None):
+    """Plot training/validation loss and accuracy side by side."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+    epochs = range(1, len(history["train_loss"]) + 1)
+
+    ax1.plot(epochs, history["train_loss"], "b-o", markersize=3, label="Train Loss")
+    ax1.plot(epochs, history["val_loss"], "r-o", markersize=3, label="Val Loss")
+    ax1.set_xlabel("Epoch");
+    ax1.set_ylabel("Loss");
+    ax1.set_title(f"Loss - {title}")
+    ax1.legend();
+    ax1.grid(True, alpha=0.3)
+
+    ax2.plot(epochs, history["train_acc"], "b-o", markersize=3, label="Train Acc")
+    ax2.plot(epochs, history["val_acc"], "r-o", markersize=3, label="Val Acc")
+    ax2.set_xlabel("Epoch");
+    ax2.set_ylabel("Accuracy");
+    ax2.set_title(f"Accuracy - {title}")
+    ax2.legend();
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def plot_confusion(y_true, y_pred, title="Confusion Matrix", save_path=None):
+    cm = confusion_matrix(y_true, y_pred)
+    fig, ax = plt.subplots(figsize=(9, 8))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax,
+                xticklabels=range(10), yticklabels=range(10))
+    ax.set_xlabel("Predicted");
+    ax.set_ylabel("True");
+    ax.set_title(title)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def plot_comparison(results_dict, metric, ylabel, title, save_path=None):
+    """Overlay curves from multiple experiments."""
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for label, hist in results_dict.items():
+        epochs = range(1, len(hist[metric]) + 1)
+        ax.plot(epochs, hist[metric], "-o", markersize=2, label=str(label))
+    ax.set_xlabel("Epoch");
+    ax.set_ylabel(ylabel);
+    ax.set_title(title)
+    ax.legend();
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
