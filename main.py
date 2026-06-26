@@ -105,3 +105,80 @@ def make_loaders(batch_size, x_tr=X_train, y_tr=y_train,
             DataLoader(test_ds, batch_size=512, shuffle=False, **kw))
 
 
+# =============================================================================
+# Section 2: Neural Network Architectures
+# =============================================================================
+
+# -- 2a. Feed-Forward Network (FNN) ------------------------------------------
+# Ref: [analysis.md: FNN Architecture](analysis.md#section-2-neural-network-architectures)
+class FeedForwardNet(nn.Module):
+    """Configurable feed-forward network for MNIST (28x28 -> 10)."""
+
+    def __init__(self, hidden_sizes=(256, 128), dropout_p=0.0):
+        super().__init__()
+        layers = []
+        in_features = 28 * 28
+        for h in hidden_sizes:
+            layers.append(nn.Linear(in_features, h))
+            layers.append(nn.ReLU(inplace=True))
+            if dropout_p > 0:
+                layers.append(nn.Dropout(dropout_p))
+            in_features = h
+        layers.append(nn.Linear(in_features, 10))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x.view(x.size(0), -1))
+
+
+# -- 2b. Convolutional Network (Bonus) ---------------------------------------
+# Ref: [analysis.md: CNN Architecture](analysis.md#section-2-neural-network-architectures)
+class ConvNet(nn.Module):
+    """
+    CNN for MNIST with optional Dropout and LayerNorm (bonus).
+    Architecture: Conv->LN->ReLU->Conv->LN->ReLU->Pool->FC->FC
+    """
+
+    def __init__(self, use_dropout=True, use_layernorm=True):
+        super().__init__()
+        self.use_dropout = use_dropout
+        self.use_layernorm = use_layernorm
+
+        # Conv block 1
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)  # 28x28->28x28
+        self.ln1 = nn.LayerNorm([32, 28, 28]) if use_layernorm else nn.Identity()
+
+        # Conv block 2
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # 28x28->28x28
+        self.ln2 = nn.LayerNorm([64, 28, 28]) if use_layernorm else nn.Identity()
+
+        self.pool = nn.MaxPool2d(2, 2)  # ->14x14
+
+        # Conv block 3
+        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)  # 14x14->14x14
+        self.ln3 = nn.LayerNorm([128, 14, 14]) if use_layernorm else nn.Identity()
+
+        self.pool2 = nn.MaxPool2d(2, 2)  # ->7x7
+
+        self.drop1 = nn.Dropout(0.25) if use_dropout else nn.Identity()
+        self.drop2 = nn.Dropout(0.50) if use_dropout else nn.Identity()
+
+        self.fc1 = nn.Linear(128 * 7 * 7, 256)
+        self.ln_fc = nn.LayerNorm(256) if use_layernorm else nn.Identity()
+        self.fc2 = nn.Linear(256, 10)
+
+    def forward(self, x):
+        x = F.relu(self.ln1(self.conv1(x)))
+        x = F.relu(self.ln2(self.conv2(x)))
+        x = self.pool(x)
+        x = self.drop1(x)
+        x = F.relu(self.ln3(self.conv3(x)))
+        x = self.pool2(x)
+        x = self.drop1(x)
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.ln_fc(self.fc1(x)))
+        x = self.drop2(x)
+        x = self.fc2(x)
+        return x
+
+
