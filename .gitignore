@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+.ipynb_checkpoints/
+.DS_Store
+*.iml
+.pytest_cache/
+
+# Local/generated data and heavy artifacts
+*.log
+
+data/
