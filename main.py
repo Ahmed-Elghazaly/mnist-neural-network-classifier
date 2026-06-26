@@ -355,3 +355,112 @@ plot_confusion(targets_bl, preds_bl, "Baseline Confusion Matrix",
                os.path.join(OUTPUT_DIR, "baseline_confusion.png"))
 
 # =============================================================================
+# Section 5: Hyperparameter Sweeps
+# Ref: [analysis.md: Hyperparameter Sweeps](analysis.md#section-5-hyperparameter-sweeps)
+# =============================================================================
+print("\n" + "=" * 70)
+print("Section 5: Hyperparameter Sweeps")
+print("=" * 70)
+
+best_val_acc = max(baseline_hist["val_acc"])
+best_config = {"lr": LR_DEFAULT, "bs": BS_DEFAULT,
+               "arch": (256, 128), "model": baseline_model,
+               "history": baseline_hist}
+
+# -- 4a. Learning Rate Sweep --------------------------------------------------
+print("\n-- Learning Rate Sweep --")
+lr_values = [0.001, 0.005, 0.01, 0.05, 0.1]
+lr_results = {}
+
+for lr in lr_values:
+    print(f"  LR = {lr}")
+    model = FeedForwardNet(hidden_sizes=(256, 128))
+    tl, vl, _ = make_loaders(BS_DEFAULT)
+    hist = train_model(model, tl, vl, lr=lr, epochs=EPOCHS, verbose=False)
+    lr_results[f"lr={lr}"] = hist
+    va = max(hist["val_acc"])
+    print(f"    Best Val Acc: {va:.4f}")
+    if va > best_val_acc:
+        best_val_acc = va
+        best_config.update(lr=lr, model=copy.deepcopy(model), history=hist)
+
+plot_comparison(lr_results, "val_loss", "Val Loss",
+                "Validation Loss - LR Sweep",
+                os.path.join(OUTPUT_DIR, "lr_sweep_loss.png"))
+plot_comparison(lr_results, "val_acc", "Val Accuracy",
+                "Validation Accuracy - LR Sweep",
+                os.path.join(OUTPUT_DIR, "lr_sweep_acc.png"))
+
+# -- 4b. Batch Size Sweep ----------------------------------------------------
+print("\n-- Batch Size Sweep --")
+bs_values = [16, 32, 64, 128, 256]
+bs_results = {}
+
+for bs in bs_values:
+    print(f"  BS = {bs}")
+    model = FeedForwardNet(hidden_sizes=(256, 128))
+    tl, vl, _ = make_loaders(bs)
+    hist = train_model(model, tl, vl, lr=LR_DEFAULT, epochs=EPOCHS, verbose=False)
+    bs_results[f"bs={bs}"] = hist
+    va = max(hist["val_acc"])
+    print(f"    Best Val Acc: {va:.4f}")
+    if va > best_val_acc:
+        best_val_acc = va
+        best_config.update(bs=bs, model=copy.deepcopy(model), history=hist)
+
+plot_comparison(bs_results, "val_loss", "Val Loss",
+                "Validation Loss - Batch Size Sweep",
+                os.path.join(OUTPUT_DIR, "bs_sweep_loss.png"))
+plot_comparison(bs_results, "val_acc", "Val Accuracy",
+                "Validation Accuracy - Batch Size Sweep",
+                os.path.join(OUTPUT_DIR, "bs_sweep_acc.png"))
+
+# -- 4c. Architecture Sweep (neurons & layers) -------------------------------
+print("\n-- Architecture Sweep --")
+arch_configs = [
+    (64,),  # 1 hidden, small
+    (256,),  # 1 hidden, large
+    (128, 64),  # 2 hidden, medium
+    (256, 128),  # 2 hidden, large  (baseline)
+    (512, 256),  # 2 hidden, bigger
+    (256, 128, 64),  # 3 hidden
+    (512, 256, 128),  # 3 hidden, large
+    (512, 256, 128, 64),  # 4 hidden
+]
+arch_results = {}
+
+for arch in arch_configs:
+    tag = "-".join(map(str, arch))
+    print(f"  Arch = {tag}")
+    model = FeedForwardNet(hidden_sizes=arch)
+    tl, vl, _ = make_loaders(BS_DEFAULT)
+    hist = train_model(model, tl, vl, lr=LR_DEFAULT, epochs=EPOCHS, verbose=False)
+    arch_results[tag] = hist
+    va = max(hist["val_acc"])
+    print(f"    Best Val Acc: {va:.4f}")
+    if va > best_val_acc:
+        best_val_acc = va
+        best_config.update(arch=arch, model=copy.deepcopy(model), history=hist)
+
+plot_comparison(arch_results, "val_acc", "Val Accuracy",
+                "Validation Accuracy - Architecture Sweep",
+                os.path.join(OUTPUT_DIR, "arch_sweep_acc.png"))
+plot_comparison(arch_results, "val_loss", "Val Loss",
+                "Validation Loss - Architecture Sweep",
+                os.path.join(OUTPUT_DIR, "arch_sweep_loss.png"))
+
+# -- Best FNN on Test Set -----------------------------------------------------
+print(f"\n  * Best FNN config: LR={best_config['lr']}, BS={best_config['bs']}, "
+      f"Arch={best_config.get('arch', (256, 128))}")
+
+_, _, tl_test = make_loaders(best_config["bs"])
+best_fnn_acc, preds_best, targets_best = evaluate_model(best_config["model"], tl_test)
+print(f"  * Best FNN Test Accuracy: {best_fnn_acc:.4f}")
+
+plot_confusion(targets_best, preds_best, "Best FNN - Confusion Matrix",
+               os.path.join(OUTPUT_DIR, "best_fnn_confusion.png"))
+
+print("\n  Classification Report (Best FNN):")
+print(classification_report(targets_best, preds_best, digits=4))
+
+# =============================================================================
