@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 
-# -- Imports ------------------------------------------------------------------
-import copy
+# Imports
 import os
 import warnings
 
@@ -24,7 +23,7 @@ from torchvision import datasets, transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 
-# -- Reproducibility ----------------------------------------------------------
+# Reproducibility
 SEED = 42
 torch.manual_seed(SEED)
 np.random.seed(SEED)
@@ -45,10 +44,8 @@ print(f"[INFO] Using device: {DEVICE}")
 OUTPUT_DIR = "results"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# =============================================================================
-# Section 1: Data Preparation
+# Data Preparation
 # Ref: [analysis.md: Data Preparation](analysis.md#section-1-data-preparation)
-# =============================================================================
 print("\n" + "=" * 70)
 print("Section 1: Data Preparation")
 print("=" * 70)
@@ -72,7 +69,7 @@ print(f"Total samples : {len(all_data)}")
 print(f"Image shape   : {all_data.shape[1:]}")
 print(f"Classes       : {torch.unique(all_labels).tolist()}")
 
-# -- Stratified split: 60% train, 20% val, 20% test --------------------------
+# Stratified split: 60% train, 20% val, 20% test
 indices = np.arange(len(all_data))
 labels_np = all_labels.numpy()
 
@@ -91,7 +88,7 @@ X_test, y_test = all_data[idx_test], all_labels[idx_test]
 print(f"Train : {len(X_train)}  |  Val : {len(X_val)}  |  Test : {len(X_test)}")
 
 
-# -- DataLoader factory -------------------------------------------------------
+# DataLoader
 # Ref: [analysis.md: DataLoader Factory](analysis.md#section-1-data-preparation)
 def make_loaders(batch_size, x_tr=X_train, y_tr=y_train,
                  x_va=X_val, y_va=y_val, x_te=X_test, y_te=y_test):
@@ -105,12 +102,11 @@ def make_loaders(batch_size, x_tr=X_train, y_tr=y_train,
             DataLoader(test_ds, batch_size=512, shuffle=False, **kw))
 
 
-# =============================================================================
-# Section 2: Neural Network Architectures
-# =============================================================================
+# Neural Network Architectures
 
-# -- 2a. Feed-Forward Network (FNN) ------------------------------------------
+# Feed-Forward Network (FNN) 
 # Ref: [analysis.md: FNN Architecture](analysis.md#section-2-neural-network-architectures)
+
 class FeedForwardNet(nn.Module):
     """Configurable feed-forward network for MNIST (28x28 -> 10)."""
 
@@ -131,7 +127,7 @@ class FeedForwardNet(nn.Module):
         return self.net(x.view(x.size(0), -1))
 
 
-# -- 2b. Convolutional Network (Bonus) ---------------------------------------
+# Convolutional Network
 # Ref: [analysis.md: CNN Architecture](analysis.md#section-2-neural-network-architectures)
 class ConvNet(nn.Module):
     """
@@ -182,9 +178,7 @@ class ConvNet(nn.Module):
         return x
 
 
-# =============================================================================
-# Section 3: Training Loop
-# =============================================================================
+# Training Loop
 
 # Ref: [analysis.md: Training Loop](analysis.md#section-3-training-loop)
 def train_model(model, train_loader, val_loader, lr=0.01, epochs=20,
@@ -201,7 +195,7 @@ def train_model(model, train_loader, val_loader, lr=0.01, epochs=20,
                "train_acc": [], "val_acc": []}
 
     for epoch in range(1, epochs + 1):
-        # -- Training phase -----------------------------------------------
+        # Training phase
         model.train()
         running_loss, correct, total = 0.0, 0, 0
         for X_batch, y_batch in train_loader:
@@ -220,7 +214,7 @@ def train_model(model, train_loader, val_loader, lr=0.01, epochs=20,
         train_loss = running_loss / total
         train_acc = correct / total
 
-        # -- Validation phase ---------------------------------------------
+        # Validation phase
         model.eval()
         running_loss, correct, total = 0.0, 0, 0
         with torch.no_grad():
@@ -265,9 +259,7 @@ def evaluate_model(model, loader, device=DEVICE):
     return correct / total, np.array(all_preds), np.array(all_targets)
 
 
-# =============================================================================
-# PLOTTING HELPERS
-# =============================================================================
+# Plotting
 
 def plot_curves(history, title="", save_path=None):
     """Plot training/validation loss and accuracy side by side."""
@@ -327,10 +319,9 @@ def plot_comparison(results_dict, metric, ylabel, title, save_path=None):
     plt.close()
 
 
-# =============================================================================
-# Section 4: Baseline Training
+# Baseline Training
 # Ref: [analysis.md: Baseline Training](analysis.md#section-4-baseline-training)
-# =============================================================================
+
 print("\n" + "=" * 70)
 print("Section 4: Baseline Training (lr=0.01, bs=64, hidden=[256,128])")
 print("=" * 70)
@@ -354,10 +345,9 @@ print(f"\n  * Baseline Test Accuracy: {baseline_acc:.4f}")
 plot_confusion(targets_bl, preds_bl, "Baseline Confusion Matrix",
                os.path.join(OUTPUT_DIR, "baseline_confusion.png"))
 
-# =============================================================================
-# Section 5: Hyperparameter Sweeps
+# Hyperparameter Sweeps
 # Ref: [analysis.md: Hyperparameter Sweeps](analysis.md#section-5-hyperparameter-sweeps)
-# =============================================================================
+
 print("\n" + "=" * 70)
 print("Section 5: Hyperparameter Sweeps")
 print("=" * 70)
@@ -367,7 +357,7 @@ best_config = {"lr": LR_DEFAULT, "bs": BS_DEFAULT,
                "arch": (256, 128), "model": baseline_model,
                "history": baseline_hist}
 
-# -- 4a. Learning Rate Sweep --------------------------------------------------
+# Learning Rate Sweep
 print("\n-- Learning Rate Sweep --")
 lr_values = [0.001, 0.005, 0.01, 0.05, 0.1]
 lr_results = {}
@@ -391,7 +381,7 @@ plot_comparison(lr_results, "val_acc", "Val Accuracy",
                 "Validation Accuracy - LR Sweep",
                 os.path.join(OUTPUT_DIR, "lr_sweep_acc.png"))
 
-# -- 4b. Batch Size Sweep ----------------------------------------------------
+# Batch Size Sweep
 print("\n-- Batch Size Sweep --")
 bs_values = [16, 32, 64, 128, 256]
 bs_results = {}
@@ -415,7 +405,7 @@ plot_comparison(bs_results, "val_acc", "Val Accuracy",
                 "Validation Accuracy - Batch Size Sweep",
                 os.path.join(OUTPUT_DIR, "bs_sweep_acc.png"))
 
-# -- 4c. Architecture Sweep (neurons & layers) -------------------------------
+# Architecture Sweep (neurons & layers)
 print("\n-- Architecture Sweep --")
 arch_configs = [
     (64,),  # 1 hidden, small
@@ -449,7 +439,7 @@ plot_comparison(arch_results, "val_loss", "Val Loss",
                 "Validation Loss - Architecture Sweep",
                 os.path.join(OUTPUT_DIR, "arch_sweep_loss.png"))
 
-# -- Best FNN on Test Set -----------------------------------------------------
+# Best FNN on Test Set
 print(f"\n  * Best FNN config: LR={best_config['lr']}, BS={best_config['bs']}, "
       f"Arch={best_config.get('arch', (256, 128))}")
 
@@ -463,10 +453,9 @@ plot_confusion(targets_best, preds_best, "Best FNN - Confusion Matrix",
 print("\n  Classification Report (Best FNN):")
 print(classification_report(targets_best, preds_best, digits=4))
 
-# =============================================================================
-# Section 6: CNN Bonus and Summary
-# Ref: [analysis.md: CNN Bonus and Summary](analysis.md#section-6-cnn-bonus-and-summary)
-# =============================================================================
+# Section 6: CNN and Summary
+# Ref: [analysis.md: CNN and Summary](analysis.md#section-6-cnn-and-summary)
+
 print("\n" + "=" * 70)
 print("Section 6: CNN Bonus and Summary")
 print("=" * 70)
@@ -509,7 +498,7 @@ plot_comparison(cnn_results, "train_loss", "Train Loss",
                 "CNN Ablation - Training Loss",
                 os.path.join(OUTPUT_DIR, "cnn_ablation_train_loss.png"))
 
-# -- Best CNN on Test Set -----------------------------------------------------
+# Best CNN on Test Set
 _, _, tl_test = make_loaders(CNN_BS)
 cnn_test_acc, cnn_preds, cnn_targets = evaluate_model(best_cnn_model, tl_test)
 print(f"\n  * Best CNN ({best_cnn_name}) Test Accuracy: {cnn_test_acc:.4f}")
@@ -521,9 +510,7 @@ plot_confusion(cnn_targets, cnn_preds,
 print("\n  Classification Report (Best CNN):")
 print(classification_report(cnn_targets, cnn_preds, digits=4))
 
-# =============================================================================
-# Section 6: CNN Bonus and Summary - Final Printed Summary
-# =============================================================================
+# CNN and Summary - Final Printed Summary
 print("\n" + "=" * 70)
 print("SUMMARY")
 print("=" * 70)
