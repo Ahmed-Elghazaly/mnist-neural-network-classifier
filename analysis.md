@@ -28,7 +28,7 @@ The baseline run uses the default learning rate, batch size, and two-hidden-laye
 
 The analysis changes one factor at a time: learning rate, batch size, and network architecture. The best feed-forward configuration is selected using validation accuracy and then evaluated on the held-out test set.
 
-## Section 6: CNN Bonus and Summary
+## Section 6: CNN and Summary
 - **Implementation:** [main.py (L459-L526)](main.py#L459-L526)
 
 The CNN bonus compares dropout and layer normalization settings. The summary prints the baseline feed-forward accuracy, best feed-forward accuracy, and best CNN accuracy when the full script is allowed to finish.
